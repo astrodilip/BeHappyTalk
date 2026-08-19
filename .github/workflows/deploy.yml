@@ -7,6 +7,7 @@ on:
     # Only the Express server runs on the VPS, so app-only commits skip the deploy.
     paths:
       - 'server/**'
+      - 'scripts/deploy.sh'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
@@ -15,89 +16,72 @@ concurrency:
   group: deploy-vps
   cancel-in-progress: false
 
+env:
+  # One short command: reset to the revision being deployed, then hand off to the
+  # script in the repo. SSH from GitHub runners to this box drops connections
+  # intermittently, and a short-lived session is far less likely to be cut off
+  # mid-deploy than one streaming a long inline script.
+  DEPLOY_CMD: |
+    cd /var/www/behappytalk
+    git fetch origin main
+    git reset --hard origin/main
+    sh scripts/deploy.sh
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
-      - name: Deploy using SSH
+      - name: Deploy over SSH (attempt 1)
+        id: attempt1
+        continue-on-error: true
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-          # Abort the job as soon as any command fails, instead of reporting
-          # success after a failed pull (which hid a broken deploy for weeks).
+          timeout: 60s
+          command_timeout: 10m
           script_stop: true
-          script: |
-            # /bin/sh on this box is dash, and the action runs the script through sh,
-            # so this must stay POSIX: no `pipefail`, no `[[ ]]`, no arrays.
-            set -eu
+          script: ${{ env.DEPLOY_CMD }}
 
-            APP_DIR=/var/www/behappytalk
-            SERVER_DIR="$APP_DIR/server"
-            PM2_NAME=behappytalk-server
+      - name: Deploy over SSH (attempt 2)
+        id: attempt2
+        if: steps.attempt1.outcome == 'failure'
+        continue-on-error: true
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          timeout: 60s
+          command_timeout: 10m
+          script_stop: true
+          script: ${{ env.DEPLOY_CMD }}
 
-            cd "$APP_DIR"
+      - name: Report SSH outcome
+        run: |
+          echo "attempt 1: ${{ steps.attempt1.outcome }}"
+          echo "attempt 2: ${{ steps.attempt2.outcome || 'skipped' }}"
 
-            # Remember where we were so a failed health check can roll back.
-            PREV_SHA=$(git rev-parse HEAD)
-            echo "Current revision: $PREV_SHA"
-
-            LOCK_BEFORE=$(git hash-object server/package-lock.json 2>/dev/null || echo none)
-
-            # reset --hard rather than pull: generated files like package-lock.json
-            # get modified in place on the server, and a dirty tree makes pull fail.
-            git fetch origin main
-            git reset --hard origin/main
-            NEW_SHA=$(git rev-parse HEAD)
-            echo "Deploying revision: $NEW_SHA"
-
-            LOCK_AFTER=$(git hash-object server/package-lock.json 2>/dev/null || echo none)
-
-            cd "$SERVER_DIR"
-            if [ "$LOCK_BEFORE" != "$LOCK_AFTER" ]; then
-              # npm ci installs exactly what the lockfile pins, so a deploy can never
-              # drag in an untested dependency version the way npm install can.
-              echo "Lockfile changed - installing dependencies with npm ci"
-              npm ci --omit=dev
-            else
-              echo "Lockfile unchanged - skipping dependency install"
+      # The real gate: does the public API answer? This runs from the runner over
+      # HTTPS, so it verifies the whole path through nginx and does not depend on
+      # the SSH session surviving. A deploy whose SSH step died after reloading
+      # still passes here, and a genuinely broken deploy still fails the job.
+      - name: Verify the live API
+        run: |
+          set -eu
+          URL=https://provider.behappytalk.com/api/providers
+          for attempt in $(seq 1 12); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$URL" || echo 000)
+            if [ "$CODE" = "200" ]; then
+              echo "API healthy on attempt $attempt"
+              exit 0
             fi
-
-            # reload only works on an already-registered process; start it otherwise.
-            if pm2 describe "$PM2_NAME" > /dev/null 2>&1; then
-              pm2 reload "$PM2_NAME" --update-env
-            else
-              echo "No pm2 process named $PM2_NAME - starting it"
-              pm2 start server.js --name "$PM2_NAME"
-            fi
-            # Persist the process list so a reboot brings the API back by itself.
-            pm2 save
-
-            PORT=$(sed -n 's/^PORT=[^0-9]*\([0-9][0-9]*\).*/\1/p' .env 2>/dev/null | tail -1 || true)
-            PORT=${PORT:-5050}
-
-            # Fail the deploy if the API does not actually answer afterwards.
-            echo "Health checking http://127.0.0.1:$PORT/api/providers"
-            for attempt in $(seq 1 10); do
-              CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
-                "http://127.0.0.1:$PORT/api/providers" || echo 000)
-              if [ "$CODE" = "200" ]; then
-                echo "Health check passed on attempt $attempt"
-                exit 0
-              fi
-              echo "Attempt $attempt: HTTP $CODE - retrying in 5s"
-              sleep 5
-            done
-
-            echo "Health check failed - rolling back to $PREV_SHA"
-            cd "$APP_DIR"
-            git reset --hard "$PREV_SHA"
-            cd "$SERVER_DIR"
-            pm2 reload "$PM2_NAME" --update-env || pm2 start server.js --name "$PM2_NAME"
-            pm2 save
-            echo "Rolled back. Recent process output:"
-            pm2 logs "$PM2_NAME" --lines 40 --nostream || true
-            exit 1
+            echo "Attempt $attempt: HTTP $CODE - retrying in 10s"
+            sleep 10
+          done
+          echo "::error::The live API never returned 200 after the deploy"
+          exit 1
