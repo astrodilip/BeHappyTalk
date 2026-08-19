@@ -7,7 +7,7 @@ on:
     # Only the Express server runs on the VPS, so app-only commits skip the deploy.
     paths:
       - 'server/**'
-      - 'scripts/deploy.sh'
+      - 'scripts/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
