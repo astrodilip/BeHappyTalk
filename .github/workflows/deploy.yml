@@ -4,10 +4,21 @@ on:
   push:
     branches:
       - main
+    # Only the Express server runs on the VPS, so app-only commits skip the deploy.
+    paths:
+      - 'server/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+# Never let two deploys race each other onto the same box.
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Deploy using SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -16,9 +27,75 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
+          # Abort the job as soon as any command fails, instead of reporting
+          # success after a failed pull (which hid a broken deploy for weeks).
+          script_stop: true
           script: |
-            cd /var/www/behappytalk
-            git pull origin main
-            cd server
-            npm install --production
-            pm2 reload behappytalk-server
+            set -euo pipefail
+
+            APP_DIR=/var/www/behappytalk
+            SERVER_DIR="$APP_DIR/server"
+            PM2_NAME=behappytalk-server
+
+            cd "$APP_DIR"
+
+            # Remember where we were so a failed health check can roll back.
+            PREV_SHA=$(git rev-parse HEAD)
+            echo "Current revision: $PREV_SHA"
+
+            LOCK_BEFORE=$(git hash-object server/package-lock.json 2>/dev/null || echo none)
+
+            # reset --hard rather than pull: generated files like package-lock.json
+            # get modified in place on the server, and a dirty tree makes pull fail.
+            git fetch origin main
+            git reset --hard origin/main
+            NEW_SHA=$(git rev-parse HEAD)
+            echo "Deploying revision: $NEW_SHA"
+
+            LOCK_AFTER=$(git hash-object server/package-lock.json 2>/dev/null || echo none)
+
+            cd "$SERVER_DIR"
+            if [ "$LOCK_BEFORE" != "$LOCK_AFTER" ]; then
+              # npm ci installs exactly what the lockfile pins, so a deploy can never
+              # drag in an untested dependency version the way npm install can.
+              echo "Lockfile changed - installing dependencies with npm ci"
+              npm ci --omit=dev
+            else
+              echo "Lockfile unchanged - skipping dependency install"
+            fi
+
+            # reload only works on an already-registered process; start it otherwise.
+            if pm2 describe "$PM2_NAME" > /dev/null 2>&1; then
+              pm2 reload "$PM2_NAME" --update-env
+            else
+              echo "No pm2 process named $PM2_NAME - starting it"
+              pm2 start server.js --name "$PM2_NAME"
+            fi
+            # Persist the process list so a reboot brings the API back by itself.
+            pm2 save
+
+            PORT=$(sed -n 's/^PORT=[^0-9]*\([0-9][0-9]*\).*/\1/p' .env 2>/dev/null | tail -1 || true)
+            PORT=${PORT:-5050}
+
+            # Fail the deploy if the API does not actually answer afterwards.
+            echo "Health checking http://127.0.0.1:$PORT/api/providers"
+            for attempt in $(seq 1 10); do
+              CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+                "http://127.0.0.1:$PORT/api/providers" || echo 000)
+              if [ "$CODE" = "200" ]; then
+                echo "Health check passed on attempt $attempt"
+                exit 0
+              fi
+              echo "Attempt $attempt: HTTP $CODE - retrying in 5s"
+              sleep 5
+            done
+
+            echo "Health check failed - rolling back to $PREV_SHA"
+            cd "$APP_DIR"
+            git reset --hard "$PREV_SHA"
+            cd "$SERVER_DIR"
+            pm2 reload "$PM2_NAME" --update-env || pm2 start server.js --name "$PM2_NAME"
+            pm2 save
+            echo "Rolled back. Recent process output:"
+            pm2 logs "$PM2_NAME" --lines 40 --nostream || true
+            exit 1
