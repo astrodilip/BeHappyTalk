@@ -31,7 +31,9 @@ jobs:
           # success after a failed pull (which hid a broken deploy for weeks).
           script_stop: true
           script: |
-            set -euo pipefail
+            # /bin/sh on this box is dash, and the action runs the script through sh,
+            # so this must stay POSIX: no `pipefail`, no `[[ ]]`, no arrays.
+            set -eu
 
             APP_DIR=/var/www/behappytalk
             SERVER_DIR="$APP_DIR/server"
