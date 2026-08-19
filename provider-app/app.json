@@ -2,8 +2,8 @@
   "expo": {
     "name": "Provider BeHappyTalk",
     "slug": "behappytalk-provider",
-    "version": "1.0.1",
-    "orientation": "portrait",
+    "version": "1.0.2",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -48,7 +48,10 @@
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
             "buildToolsVersion": "36.0.0",
-            "ndkVersion": "27.0.12077973"
+            "ndkVersion": "27.0.12077973",
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "# react-native-incall-manager ships no consumer rules and is reached over the RN bridge.\n-keep class com.zxcpoiu.incallmanager.** { *; }\n# Keep RN/Expo native module entry points that are resolved reflectively.\n-keep @com.facebook.react.module.annotations.ReactModule class * { *; }\n-keepclassmembers class * { @com.facebook.react.bridge.ReactMethod *; }"
           }
         }
       ],

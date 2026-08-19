@@ -1,6 +1,8 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, View } from 'react-native';
+import { useEffect } from 'react';
+import { Dimensions, Platform, View } from 'react-native';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguageProvider } from '../hooks/useLanguage';
 
@@ -25,6 +27,20 @@ global.fetch = function (input: any, init?: any) {
   return originalFetch(input, init);
 };
 
+// Android 16 ignores manifest orientation locks on large screens, and Play flags the
+// lock as a large-screen restriction, so the manifest no longer pins portrait.
+// Phones keep the portrait-only experience the layouts are designed for; tablets
+// and foldables (>= 600dp shortest side) are free to rotate.
+function usePhonePortraitLock() {
+  useEffect(() => {
+    const { width, height } = Dimensions.get('window');
+    if (Math.min(width, height) >= 600) return;
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {
+      // Large-screen devices on Android 16 reject the lock; nothing to do.
+    });
+  }, []);
+}
+
 // Android 16 (targetSdk 36) always draws the app edge-to-edge — the
 // windowOptOutEdgeToEdgeEnforcement escape hatch is ignored — so the navigation
 // bar sits on top of bottom-anchored UI unless we pad for it. Screens already
@@ -46,6 +62,8 @@ function EdgeToEdgeContainer({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
+  usePhonePortraitLock();
+
   return (
     <SafeAreaProvider>
       <LanguageProvider>
