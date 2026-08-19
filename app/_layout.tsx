@@ -1,5 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Platform, View } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguageProvider } from '../hooks/useLanguage';
 
 // Global Fetch Bypass for localtunnel & ngrok warning screens
@@ -23,10 +25,32 @@ global.fetch = function (input: any, init?: any) {
   return originalFetch(input, init);
 };
 
+// Android 16 (targetSdk 36) always draws the app edge-to-edge — the
+// windowOptOutEdgeToEdgeEnforcement escape hatch is ignored — so the navigation
+// bar sits on top of bottom-anchored UI unless we pad for it. Screens already
+// pad their top by StatusBar.currentHeight, and iOS keeps using SafeAreaView,
+// so this only handles the Android bottom inset.
+function EdgeToEdgeContainer({ children }: { children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#000000',
+        paddingBottom: Platform.OS === 'android' ? insets.bottom : 0,
+      }}
+    >
+      {children}
+    </View>
+  );
+}
+
 export default function RootLayout() {
   return (
-    <LanguageProvider>
-      <StatusBar style="light" />
+    <SafeAreaProvider>
+      <LanguageProvider>
+        <StatusBar style="light" />
+        <EdgeToEdgeContainer>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -50,6 +74,8 @@ export default function RootLayout() {
         <Stack.Screen name="child-safety" />
         <Stack.Screen name="report-vulnerability" />
       </Stack>
-    </LanguageProvider>
+        </EdgeToEdgeContainer>
+      </LanguageProvider>
+    </SafeAreaProvider>
   );
 }

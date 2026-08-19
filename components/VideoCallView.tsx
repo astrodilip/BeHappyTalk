@@ -157,7 +157,7 @@ const s = StyleSheet.create({
     backgroundColor: '#0a0a0a',
   },
   remoteFull: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#111',
   },
   waitBox: {

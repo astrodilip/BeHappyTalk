@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
   bottomBar: { flexDirection: 'row', backgroundColor: Colors.white, paddingVertical: 16, paddingHorizontal: 12, justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', zIndex: 5 },
   bottomBarBtn: { flex: 1, backgroundColor: Colors.primary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, marginHorizontal: 4, borderRadius: 12, elevation: 3, shadowColor: Colors.primary, shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   bottomBarText: { color: Colors.white, fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
-  incomingModalContainer: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', zIndex: 100 },
+  incomingModalContainer: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', zIndex: 100 },
   incomingModal: { width: width * 0.85, backgroundColor: Colors.white, borderRadius: 24, padding: 32, alignItems: 'center', elevation: 20 },
   incomingHeader: { width: 70, height: 70, borderRadius: 35, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   incomingTitle: { fontSize: 22, fontWeight: 'bold', color: Colors.textDark, marginBottom: 8, textTransform: 'capitalize' },

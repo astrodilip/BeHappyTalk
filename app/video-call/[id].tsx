@@ -471,7 +471,7 @@ const st = StyleSheet.create({
   controlBtnActive: { backgroundColor: '#EF4444' },
   endBtn: { backgroundColor: '#EF4444', width: 64, height: 64, borderRadius: 32 },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#060810',
     alignItems: 'center',
     justifyContent: 'center',

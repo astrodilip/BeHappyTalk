@@ -2,7 +2,7 @@
   "expo": {
     "name": "Provider BeHappyTalk",
     "slug": "behappytalk-provider",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -46,10 +46,13 @@
           "android": {
             "kotlinVersion": "2.1.20",
             "compileSdkVersion": 36,
-            "targetSdkVersion": 35
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0",
+            "ndkVersion": "27.0.12077973"
           }
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "extra": {
       "router": {

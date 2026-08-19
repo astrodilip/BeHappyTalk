@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   nextButton: { borderWidth: 1, borderColor: '#FACC15', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   nextButtonText: { color: '#FACC15', fontSize: 16, fontWeight: 'bold' },
 
-  loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(33, 34, 44, 0.8)', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
+  loadingOverlay: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(33, 34, 44, 0.8)', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
   loadingSpinnerBox: { width: 80, height: 80, backgroundColor: '#111111', borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   loadingText: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 }
 });

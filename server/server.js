@@ -64,6 +64,28 @@ function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+// ─── Play Store reviewer account ───────────────────────────────────────────────
+// Google Play reviewers can't receive our SMS, so this single number logs in with
+// a fixed, non-expiring OTP instead of a generated one. No SMS is ever sent for it.
+// Every other number keeps the normal generated-OTP-over-SMS flow.
+const REVIEWER_PHONE = process.env.REVIEWER_PHONE || '9999999999';
+const REVIEWER_OTP = process.env.REVIEWER_OTP || '123456';
+
+function isReviewerPhone(cleanPhone) {
+  return cleanPhone === REVIEWER_PHONE;
+}
+
+// Returns an error message if the OTP isn't acceptable, or null if it is.
+function verifyOtp(cleanPhone, otp) {
+  if (isReviewerPhone(cleanPhone)) {
+    return otp === REVIEWER_OTP ? null : 'Incorrect OTP. Please try again.';
+  }
+  const entry = otpStore[cleanPhone];
+  if (!entry || entry.expiresAt < Date.now()) return 'OTP expired. Please request a new one.';
+  if (entry.otp !== otp) return 'Incorrect OTP. Please try again.';
+  return null;
+}
+
 // â”€â”€â”€ EnableX SMS (OTP delivery) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Uses the "OTP Atrowani" EnableX project's BeHappyTalk-branded campaign,
 // template, and sender ID (BHPYTK) — not the Astrowani ones under the same project.
@@ -201,6 +223,12 @@ app.post('/api/otp/send', async (req, res) => {
   const cleanPhone = (phone || '').replace('+91', '').replace(/\D/g, '');
   if (cleanPhone.length !== 10) return res.status(400).json({ error: 'Enter a valid 10-digit mobile number.' });
 
+  // Play Store reviewer number: fixed OTP, no SMS, never expires.
+  if (isReviewerPhone(cleanPhone)) {
+    console.log(`[OTP] ${cleanPhone} -> reviewer account, fixed OTP accepted (no SMS sent)`);
+    return res.json({ success: true });
+  }
+
   const otp = generateOtp();
   otpStore[cleanPhone] = { otp, expiresAt: Date.now() + OTP_TTL_MS };
   const sent = await sendSmsOtp(cleanPhone, otp);
@@ -214,10 +242,8 @@ app.post('/api/otp/send', async (req, res) => {
 app.post('/api/otp/verify', async (req, res) => {
   const { phone, otp } = req.body;
   const cleanPhone = (phone || '').replace('+91', '').replace(/\D/g, '');
-  const entry = otpStore[cleanPhone];
-
-  if (!entry || entry.expiresAt < Date.now()) return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
-  if (entry.otp !== otp) return res.status(400).json({ error: 'Incorrect OTP. Please try again.' });
+  const otpError = verifyOtp(cleanPhone, otp);
+  if (otpError) return res.status(400).json({ error: otpError });
 
   const { data: row, error } = await db.from('users').select('*').eq('phone', cleanPhone).maybeSingle();
   if (error) return res.status(500).json({ error: error.message });
@@ -240,9 +266,8 @@ app.post('/api/otp/signup', async (req, res) => {
   if (!name || !name.trim()) return res.status(400).json({ error: 'Please enter your name.' });
   if (!password || password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters.' });
 
-  const entry = otpStore[cleanPhone];
-  if (!entry || entry.expiresAt < Date.now()) return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
-  if (entry.otp !== otp) return res.status(400).json({ error: 'Incorrect OTP. Please try again.' });
+  const otpError = verifyOtp(cleanPhone, otp);
+  if (otpError) return res.status(400).json({ error: otpError });
 
   const { data: existing } = await db.from('users').select('id').eq('phone', cleanPhone).maybeSingle();
   if (existing) return res.status(400).json({ error: 'Phone already registered. Please log in.' });
@@ -309,6 +334,12 @@ app.post('/api/provider/otp/send', async (req, res) => {
   const cleanPhone = (phone || '').replace('+91', '').replace(/\D/g, '');
   if (cleanPhone.length !== 10) return res.status(400).json({ error: 'Enter a valid 10-digit mobile number.' });
 
+  // Play Store reviewer number: fixed OTP, no SMS, never expires.
+  if (isReviewerPhone(cleanPhone)) {
+    console.log(`[Provider OTP] ${cleanPhone} -> reviewer account, fixed OTP accepted (no SMS sent)`);
+    return res.json({ success: true });
+  }
+
   const otp = generateOtp();
   otpStore[cleanPhone] = { otp, expiresAt: Date.now() + OTP_TTL_MS };
   const sent = await sendSmsOtp(cleanPhone, otp);
@@ -322,10 +353,8 @@ app.post('/api/provider/otp/send', async (req, res) => {
 app.post('/api/provider/otp/verify', async (req, res) => {
   const { phone, otp } = req.body;
   const cleanPhone = (phone || '').replace('+91', '').replace(/\D/g, '');
-  const entry = otpStore[cleanPhone];
-
-  if (!entry || entry.expiresAt < Date.now()) return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
-  if (entry.otp !== otp) return res.status(400).json({ error: 'Incorrect OTP. Please try again.' });
+  const otpError = verifyOtp(cleanPhone, otp);
+  if (otpError) return res.status(400).json({ error: otpError });
 
   const { data: row, error } = await db.from('providers').select('*').eq('phone', cleanPhone).maybeSingle();
   if (error) return res.status(500).json({ error: error.message });
@@ -347,9 +376,8 @@ app.post('/api/provider/otp/signup', async (req, res) => {
   const cleanPhone = (phone || '').replace('+91', '').replace(/\D/g, '');
   if (!name || !name.trim()) return res.status(400).json({ error: 'Please enter your name.' });
 
-  const entry = otpStore[cleanPhone];
-  if (!entry || entry.expiresAt < Date.now()) return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
-  if (entry.otp !== otp) return res.status(400).json({ error: 'Incorrect OTP. Please try again.' });
+  const otpError = verifyOtp(cleanPhone, otp);
+  if (otpError) return res.status(400).json({ error: otpError });
 
   const { data: existing } = await db.from('providers').select('id').eq('phone', cleanPhone).maybeSingle();
   if (existing) return res.status(400).json({ error: 'Phone already registered. Please log in.' });
@@ -709,7 +737,7 @@ app.get('/api/turn-credentials', authenticateToken, async (req, res) => {
 });
 
 app.get('/api/providers', async (req, res) => {
-  const { data: rows, error } = await db.from('providers').select('*');
+  const { data: rows, error } = await db.from('providers').select('*').neq('phone', REVIEWER_PHONE);
   if (error) return res.status(500).json({ error: error.message });
   const mappedRows = rows.map(r => {
     const memState = providerStates[r.id];

@@ -19,7 +19,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import io from 'socket.io-client';
 import { useAuth } from '../../hooks/useAuth';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import { API_URL, SOCKET_URL, secureFetch } from '../../constants/ServerConfig';
 import AudioCallView from '../../components/AudioCallView';
 import { useAudioWebRTC } from '../../hooks/useAudioWebRTC';
@@ -42,7 +42,7 @@ export default function DedicatedAudioCallScreen() {
   const [isConnecting, setIsConnecting] = useState(false);
 
   const socketRef = useRef<any>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<AudioPlayer | null>(null);
   const isRingbackStoppedRef = useRef(false);
   const callStartedRef = useRef(false);
   const handleSignalRef = useRef<((payload: any) => void) | null>(null);
@@ -92,22 +92,22 @@ export default function DedicatedAudioCallScreen() {
   const playRingback = async () => {
     try {
       if (soundRef.current) return; // already playing
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        shouldRouteThroughEarpiece: false,
       });
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3' },
-        { shouldPlay: true, isLooping: true, volume: 0.5 }
-      );
+      const sound = createAudioPlayer({
+        uri: 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3',
+      });
+      sound.loop = true;
+      sound.volume = 0.5;
       if (isRingbackStoppedRef.current) {
-        await sound.stopAsync();
-        await sound.unloadAsync();
+        sound.remove();
         return;
       }
+      sound.play();
       soundRef.current = sound;
     } catch (e) {
       console.log('Ringback error (non-fatal):', e);
@@ -121,8 +121,8 @@ export default function DedicatedAudioCallScreen() {
     
     soundRef.current = null; // Clear immediately to prevent double-calls
     try {
-      await sound.stopAsync();
-      await sound.unloadAsync();
+      sound.pause();
+      sound.remove();
     } catch (e) {
       // Ignore "Player does not exist" which happens during fast remounts
     }
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
   },
   connectingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(5, 7, 10, 0.98)',
     justifyContent: 'center',
     alignItems: 'center',

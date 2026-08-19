@@ -523,7 +523,7 @@ export default function Home() {
       <Modal visible={isDrawerOpen} transparent animationType="none">
         <View style={styles.drawerOverlay}>
           <TouchableWithoutFeedback onPress={toggleDrawer}>
-            <View style={StyleSheet.absoluteFillObject} />
+            <View style={StyleSheet.absoluteFill} />
           </TouchableWithoutFeedback>
           <Animated.View style={[styles.drawerContent, { transform: [{ translateX: slideAnim }] }]}>
             <ScrollView
@@ -692,7 +692,7 @@ export default function Home() {
       <Modal visible={showAnonModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback onPress={() => setShowAnonModal(false)}>
-            <View style={StyleSheet.absoluteFillObject} />
+            <View style={StyleSheet.absoluteFill} />
           </TouchableWithoutFeedback>
           <View style={styles.anonModalContent}>
             <Text style={styles.anonModalTitle}>You are Anonymous</Text>
@@ -710,7 +710,7 @@ export default function Home() {
       <Modal visible={showRecommendedModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback onPress={() => setShowRecommendedModal(false)}>
-            <View style={StyleSheet.absoluteFillObject} />
+            <View style={StyleSheet.absoluteFill} />
           </TouchableWithoutFeedback>
           <View style={styles.recommendedModalContent}>
             <Text style={styles.recommendedTitle}>{recentContacts.length > 0 ? "Quick Talk (Favorites) ⭐" : "Recommended For You ✨"}</Text>
@@ -743,7 +743,7 @@ export default function Home() {
       <Modal visible={!!selectedProvider && !connectingModal && !durationModal && !insufficientModal && !offlineModal && !busyModal} transparent animationType="slide">
         <View style={styles.bottomSheetOverlay}>
            <TouchableWithoutFeedback onPress={() => setSelectedProvider(null)}>
-             <View style={StyleSheet.absoluteFillObject} />
+             <View style={StyleSheet.absoluteFill} />
            </TouchableWithoutFeedback>
            <View style={styles.bottomSheetContent}>
               <View style={styles.bottomSheetHandle} />
@@ -797,7 +797,7 @@ export default function Home() {
       <Modal visible={durationModal} transparent animationType="slide">
         <View style={styles.bottomSheetOverlay}>
            <TouchableWithoutFeedback onPress={() => setDurationModal(false)}>
-             <View style={StyleSheet.absoluteFillObject} />
+             <View style={StyleSheet.absoluteFill} />
            </TouchableWithoutFeedback>
            <View style={styles.bottomSheetContent}>
               <View style={styles.bottomSheetHandle} />
@@ -854,7 +854,7 @@ export default function Home() {
       <Modal visible={insufficientModal} transparent animationType="slide">
         <View style={styles.bottomSheetOverlay}>
           <TouchableWithoutFeedback onPress={() => setInsufficientModal(false)}>
-            <View style={StyleSheet.absoluteFillObject} />
+            <View style={StyleSheet.absoluteFill} />
           </TouchableWithoutFeedback>
           <View style={[styles.bottomSheetContent, { alignItems: 'center' }]}>
             <View style={styles.bottomSheetHandle} />
@@ -885,7 +885,7 @@ export default function Home() {
       <Modal visible={offlineModal} transparent animationType="slide">
         <View style={styles.bottomSheetOverlay}>
           <TouchableWithoutFeedback onPress={() => setOfflineModal(false)}>
-            <View style={StyleSheet.absoluteFillObject} />
+            <View style={StyleSheet.absoluteFill} />
           </TouchableWithoutFeedback>
           <View style={[styles.bottomSheetContent, { alignItems: 'center' }]}>
             <View style={styles.bottomSheetHandle} />
@@ -907,7 +907,7 @@ export default function Home() {
       <Modal visible={busyModal} transparent animationType="slide">
         <View style={styles.bottomSheetOverlay}>
           <TouchableWithoutFeedback onPress={() => setBusyModal(false)}>
-            <View style={StyleSheet.absoluteFillObject} />
+            <View style={StyleSheet.absoluteFill} />
           </TouchableWithoutFeedback>
           <View style={[styles.bottomSheetContent, { alignItems: 'center' }]}>
             <View style={styles.bottomSheetHandle} />
